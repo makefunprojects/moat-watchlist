@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Moat Watchlist Screen</title>
+<style>
+  :root {
+    --bg: #0f1419;
+    --panel: #1a2332;
+    --text: #e7ecf3;
+    --muted: #8b9bb4;
+    --border: #2a3548;
+    --accent: #5b9fd4;
+    --up: #3dba7e;
+    --down: #e06c75;
+    --chip: #243044;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Noto Sans TC", sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.45;
+  }
+  header {
+    padding: 1.25rem 1.5rem 0.75rem; border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, #162033, var(--bg));
+  }
+  h1 { margin: 0 0 0.35rem; font-size: 1.25rem; font-weight: 650; }
+  .meta { color: var(--muted); font-size: 0.875rem; }
+  .toolbar {
+    display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center;
+    padding: 0.9rem 1.5rem; border-bottom: 1px solid var(--border); background: var(--panel);
+  }
+  .toolbar label { font-size: 0.8rem; color: var(--muted); }
+  input[type="search"], select {
+    background: var(--bg); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 0.45rem 0.7rem; font-size: 0.9rem;
+  }
+  input[type="search"] { min-width: 12rem; }
+  .chips { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+  button.chip {
+    background: var(--chip); color: var(--text); border: 1px solid var(--border);
+    border-radius: 999px; padding: 0.35rem 0.75rem; cursor: pointer; font-size: 0.85rem;
+  }
+  button.chip.active { border-color: var(--accent); color: #cfe6f8; background: #1e3a55; }
+  .wrap { overflow: auto; padding: 0 0 2rem; max-height: calc(100vh - 9rem); }
+  table {
+    width: 100%; border-collapse: collapse; font-size: 0.875rem;
+    min-width: 960px;
+  }
+  th, td { padding: 0.55rem 0.75rem; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
+  th {
+    position: sticky; top: 0; background: #152033; z-index: 2;
+    cursor: pointer; user-select: none; color: #c5d0e0; font-weight: 600;
+  }
+  th:hover { color: #fff; }
+  th .arrow { opacity: 0.35; margin-left: 0.25rem; font-size: 0.75rem; }
+  th.sorted .arrow { opacity: 1; color: var(--accent); }
+  td.num { font-variant-numeric: tabular-nums; text-align: right; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  th.num { text-align: right; }
+  tr:hover td { background: rgba(91,159,212,0.08); }
+  .pill {
+    display: inline-block; padding: 0.12rem 0.5rem; border-radius: 999px;
+    font-size: 0.75rem; background: var(--chip); border: 1px solid var(--border);
+  }
+  .pill.core { color: #9fd0ff; }
+  .pill.sat { color: #ffc89a; }
+  .pos { color: var(--up); }
+  .neg { color: var(--down); }
+  .hint { padding: 0.6rem 1.5rem; color: var(--muted); font-size: 0.8rem; }
+  footer { padding: 0.75rem 1.5rem 1.5rem; color: var(--muted); font-size: 0.75rem; }
+</style>
+</head>
+<body>
+<header>
+  <h1>護城河名單 · 可排序畫面</h1>
+  <div class="meta">資料截至 2026-09-23 收盤 · Yahoo Finance · 點欄位標題排序 · 固定名單（不自行加股）</div>
+</header>
+<div class="toolbar">
+  <div>
+    <label>搜尋</label><br/>
+    <input id="q" type="search" placeholder="Ticker 或公司名" />
+  </div>
+  <div>
+    <label>分組</label><br/>
+    <div class="chips" id="groupChips">
+      <button type="button" class="chip active" data-group="全部">全部</button>
+      <button type="button" class="chip" data-group="主倉">主倉</button>
+      <button type="button" class="chip" data-group="衛星">衛星</button>
+    </div>
+  </div>
+  <div>
+    <label>快捷篩選</label><br/>
+    <div class="chips" id="quickChips">
+      <button type="button" class="chip" data-quick="">清除</button>
+      <button type="button" class="chip" data-quick="below200">低於 200MA</button>
+      <button type="button" class="chip" data-quick="above200">高於 200MA</button>
+      <button type="button" class="chip" data-quick="rsi40">RSI &lt; 40</button>
+      <button type="button" class="chip" data-quick="fade5">5Y 弱於 10Y ≥5pp</button>
+    </div>
+  </div>
+</div>
+<div class="hint">依你的規則：畫面不是買賣建議；衛星歷史報酬不能當主倉預期；RSI 不作賣出系統。</div>
+<div class="wrap">
+<table id="tbl">
+  <thead>
+    <tr>
+      <th data-key="ticker">Ticker <span class="arrow">↕</span></th>
+      <th data-key="name">公司 <span class="arrow">↕</span></th>
+      <th data-key="group">分組 <span class="arrow">↕</span></th>
+      <th class="num" data-key="price">價格 <span class="arrow">↕</span></th>
+      <th class="num" data-key="rsi">RSI(14) <span class="arrow">↕</span></th>
+      <th class="num" data-key="sma200">200日SMA <span class="arrow">↕</span></th>
+      <th class="num" data-key="gap">距200MA% <span class="arrow">↕</span></th>
+      <th class="num" data-key="cagr5">5Y CAGR% <span class="arrow">↕</span></th>
+      <th class="num" data-key="cagr10">10Y CAGR% <span class="arrow">↕</span></th>
+      <th class="num" data-key="spread">5Y−10Y pp <span class="arrow">↕</span></th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+</div>
+<footer>來源：Yahoo Finance · 固定觀察名單（不含持倉）</footer>
+<script>
+const DATA = [{"ticker": "AAPL", "name": "Apple Inc.", "group": "主倉", "date": "2026-09-23", "price": 337.02, "rsi": 62.94, "sma200": 286.78, "gap": 17.52, "cagr5": 18.67, "cagr10": 29.32}, {"ticker": "CDNS", "name": "Cadence Design Systems, Inc.", "group": "主倉", "date": "2026-09-23", "price": 309.09, "rsi": 52.65, "sma200": 325.83, "gap": -5.14, "cagr5": 13.59, "cagr10": 28.69}, {"ticker": "CAT", "name": "Caterpillar Inc.", "group": "主倉", "date": "2026-09-23", "price": 812.02, "rsi": 48.82, "sma200": 784.48, "gap": 3.51, "cagr5": 35.1, "cagr10": 28.49}, {"ticker": "APH", "name": "Amphenol Corporation", "group": "主倉", "date": "2026-09-23", "price": 82.19, "rsi": 54.9, "sma200": 73.26, "gap": 12.19, "cagr5": 34.74, "cagr10": 27.32}, {"ticker": "DE", "name": "Deere & Company", "group": "主倉", "date": "2026-09-23", "price": 709.48, "rsi": 67.84, "sma200": 577.69, "gap": 22.81, "cagr5": 16.77, "cagr10": 25.85}, {"ticker": "MSFT", "name": "Microsoft Corporation", "group": "主倉", "date": "2026-09-23", "price": 500.59, "rsi": 56.3, "sma200": 430.38, "gap": 16.31, "cagr5": 11.75, "cagr10": 25.66}, {"ticker": "PH", "name": "Parker-Hannifin Corporation", "group": "主倉", "date": "2026-09-23", "price": 971.21, "rsi": 51.68, "sma200": 938.19, "gap": 3.52, "cagr5": 29.18, "cagr10": 24.91}, {"ticker": "HEI", "name": "HEICO Corporation", "group": "主倉", "date": "2026-09-23", "price": 310.57, "rsi": 39.57, "sma200": 322.37, "gap": -3.66, "cagr5": 18.32, "cagr10": 24.45}, {"ticker": "ETN", "name": "Eaton Corporation plc", "group": "主倉", "date": "2026-09-23", "price": 438.76, "rsi": 59.4, "sma200": 383.67, "gap": 14.36, "cagr5": 24.92, "cagr10": 23.93}, {"ticker": "PGR", "name": "The Progressive Corporation", "group": "主倉", "date": "2026-09-23", "price": 203.13, "rsi": 32.92, "sma200": 208.57, "gap": -2.61, "cagr5": 19.93, "cagr10": 24.02}, {"ticker": "GOOGL", "name": "Alphabet Inc.", "group": "主倉", "date": "2026-09-23", "price": 337.83, "rsi": 45.11, "sma200": 337.55, "gap": 0.08, "cagr5": 19.13, "cagr10": 23.68}, {"ticker": "ODFL", "name": "Old Dominion Freight Line, Inc.", "group": "主倉", "date": "2026-09-23", "price": 177.72, "rsi": 33.02, "sma200": 198.44, "gap": -10.44, "cagr5": 3.78, "cagr10": 23.59}, {"ticker": "CTAS", "name": "Cintas Corporation", "group": "主倉", "date": "2026-09-23", "price": 191.97, "rsi": 33.6, "sma200": 186.83, "gap": 2.75, "cagr5": 14.93, "cagr10": 22.32}, {"ticker": "MSCI", "name": "MSCI Inc.", "group": "主倉", "date": "2026-09-23", "price": 555.7, "rsi": 47.55, "sma200": 569.29, "gap": -2.39, "cagr5": -2.31, "cagr10": 21.8}, {"ticker": "COST", "name": "Costco Wholesale Corporation", "group": "主倉", "date": "2026-09-23", "price": 904.7, "rsi": 41.72, "sma200": 958.06, "gap": -5.57, "cagr5": 15.35, "cagr10": 21.52}, {"ticker": "SNPS", "name": "Synopsys, Inc.", "group": "主倉", "date": "2026-09-23", "price": 413.06, "rsi": 55.09, "sma200": 445.97, "gap": -7.38, "cagr5": 5.11, "cagr10": 21.41}, {"ticker": "FICO", "name": "Fair Isaac Corporation", "group": "主倉", "date": "2026-09-23", "price": 879.62, "rsi": 30.34, "sma200": 1260.18, "gap": -30.2, "cagr5": 15.98, "cagr10": 21.22}, {"ticker": "GWW", "name": "W.W. Grainger, Inc.", "group": "主倉", "date": "2026-09-23", "price": 1270.67, "rsi": 42.67, "sma200": 1192.2, "gap": 6.58, "cagr5": 26.95, "cagr10": 21.14}, {"ticker": "FAST", "name": "Fastenal Company", "group": "主倉", "date": "2026-09-23", "price": 50.99, "rsi": 60.91, "sma200": 45.52, "gap": 12.0, "cagr5": 16.3, "cagr10": 20.67}, {"ticker": "AMZN", "name": "Amazon.com, Inc.", "group": "主倉", "date": "2026-09-23", "price": 249.27, "rsi": 44.07, "sma200": 240.63, "gap": 3.59, "cagr5": 7.8, "cagr10": 19.99}, {"ticker": "TDG", "name": "TransDigm Group Incorporated", "group": "主倉", "date": "2026-09-23", "price": 1105.28, "rsi": 37.05, "sma200": 1256.28, "gap": -12.02, "cagr5": 15.6, "cagr10": 19.9}, {"ticker": "MA", "name": "Mastercard Incorporated", "group": "主倉", "date": "2026-09-23", "price": 559.92, "rsi": 40.89, "sma200": 530.71, "gap": 5.5, "cagr5": 10.0, "cagr10": 19.31}, {"ticker": "WMT", "name": "Walmart Inc.", "group": "主倉", "date": "2026-09-23", "price": 110.53, "rsi": 57.75, "sma200": 118.16, "gap": -6.46, "cagr5": 19.79, "cagr10": 18.41}, {"ticker": "AXP", "name": "American Express Company", "group": "主倉", "date": "2026-09-23", "price": 301.96, "rsi": 27.21, "sma200": 333.83, "gap": -9.55, "cagr5": 12.81, "cagr10": 18.43}, {"ticker": "AJG", "name": "Arthur J. Gallagher & Co.", "group": "主倉", "date": "2026-09-23", "price": 229.64, "rsi": 33.67, "sma200": 232.32, "gap": -1.15, "cagr5": 9.45, "cagr10": 18.14}, {"ticker": "TXN", "name": "Texas Instruments Incorporated", "group": "主倉", "date": "2026-09-23", "price": 272.62, "rsi": 56.03, "sma200": 243.1, "gap": 12.15, "cagr5": 9.38, "cagr10": 17.91}, {"ticker": "ISRG", "name": "Intuitive Surgical, Inc.", "group": "主倉", "date": "2026-09-23", "price": 398.3, "rsi": 62.3, "sma200": 453.42, "gap": -12.16, "cagr5": 2.75, "cagr10": 17.58}, {"ticker": "RSG", "name": "Republic Services, Inc.", "group": "主倉", "date": "2026-09-23", "price": 213.1, "rsi": 37.93, "sma200": 214.47, "gap": -0.64, "cagr5": 12.71, "cagr10": 17.31}, {"ticker": "NDAQ", "name": "Nasdaq, Inc.", "group": "主倉", "date": "2026-09-23", "price": 95.44, "rsi": 54.42, "sma200": 90.02, "gap": 6.02, "cagr5": 9.29, "cagr10": 17.05}, {"ticker": "MCO", "name": "Moody's Corporation", "group": "主倉", "date": "2026-09-23", "price": 473.85, "rsi": 45.61, "sma200": 470.64, "gap": 0.68, "cagr5": 5.62, "cagr10": 16.89}, {"ticker": "LIN", "name": "Linde plc", "group": "主倉", "date": "2026-09-23", "price": 469.72, "rsi": 45.8, "sma200": 480.53, "gap": -2.25, "cagr5": 10.14, "cagr10": 16.85}, {"ticker": "V", "name": "Visa Inc.", "group": "主倉", "date": "2026-09-23", "price": 361.52, "rsi": 40.46, "sma200": 335.27, "gap": 7.83, "cagr5": 10.15, "cagr10": 16.74}, {"ticker": "IDXX", "name": "IDEXX Laboratories, Inc.", "group": "主倉", "date": "2026-09-23", "price": 522.02, "rsi": 44.86, "sma200": 595.33, "gap": -12.31, "cagr5": -5.14, "cagr10": 16.71}, {"ticker": "ORLY", "name": "O'Reilly Automotive, Inc.", "group": "主倉", "date": "2026-09-23", "price": 85.9, "rsi": 46.64, "sma200": 91.36, "gap": -5.98, "cagr5": 15.56, "cagr10": 16.42}, {"ticker": "TMO", "name": "Thermo Fisher Scientific Inc.", "group": "主倉", "date": "2026-09-23", "price": 665.3, "rsi": 71.57, "sma200": 537.81, "gap": 23.71, "cagr5": 2.05, "cagr10": 15.82}, {"ticker": "CPRT", "name": "Copart, Inc.", "group": "主倉", "date": "2026-09-23", "price": 28.87, "rsi": 37.0, "sma200": 33.94, "gap": -14.94, "cagr5": -4.82, "cagr10": 15.63}, {"ticker": "NVDA", "name": "NVIDIA Corporation", "group": "衛星", "date": "2026-09-23", "price": 225.51, "rsi": 55.85, "sma200": 198.71, "gap": 13.48, "cagr5": 59.35, "cagr10": 64.1}, {"ticker": "LRCX", "name": "Lam Research Corporation", "group": "衛星", "date": "2026-09-23", "price": 307.28, "rsi": 53.11, "sma200": 268.96, "gap": 14.25, "cagr5": 39.57, "cagr10": 43.97}, {"ticker": "ANET", "name": "Arista Networks, Inc.", "group": "衛星", "date": "2026-09-23", "price": 203.47, "rsi": 58.0, "sma200": 155.88, "gap": 30.53, "cagr5": 55.37, "cagr10": 43.87}, {"ticker": "KLAC", "name": "KLA Corporation", "group": "衛星", "date": "2026-09-23", "price": 187.86, "rsi": 54.26, "sma200": 174.62, "gap": 7.58, "cagr5": 39.82, "cagr10": 41.32}, {"ticker": "AVGO", "name": "Broadcom Inc.", "group": "衛星", "date": "2026-09-23", "price": 354.99, "rsi": 44.72, "sma200": 367.45, "gap": -3.39, "cagr5": 50.38, "cagr10": 39.43}, {"ticker": "TSM", "name": "Taiwan Semiconductor Manufacturing Company Limited", "group": "衛星", "date": "2026-09-23", "price": 446.57, "rsi": 60.96, "sma200": 379.79, "gap": 17.58, "cagr5": 33.17, "cagr10": 34.03}, {"ticker": "AMAT", "name": "Applied Materials, Inc.", "group": "衛星", "date": "2026-09-23", "price": 474.38, "rsi": 52.55, "sma200": 418.58, "gap": 13.33, "cagr5": 28.38, "cagr10": 33.37}, {"ticker": "ASML", "name": "ASML Holding N.V.", "group": "衛星", "date": "2026-09-23", "price": 1744.61, "rsi": 55.1, "sma200": 1512.22, "gap": 15.37, "cagr5": 16.06, "cagr10": 33.25}, {"ticker": "PANW", "name": "Palo Alto Networks, Inc.", "group": "衛星", "date": "2026-09-23", "price": 393.3, "rsi": 62.32, "sma200": 242.49, "gap": 62.19, "cagr5": 36.94, "cagr10": 31.63}, {"ticker": "MELI", "name": "MercadoLibre, Inc.", "group": "衛星", "date": "2026-09-23", "price": 1799.24, "rsi": 40.52, "sma200": 1849.92, "gap": -2.74, "cagr5": -0.77, "cagr10": 25.46}, {"ticker": "NOW", "name": "ServiceNow, Inc.", "group": "衛星", "date": "2026-09-23", "price": 140.78, "rsi": 57.83, "sma200": 116.97, "gap": 20.35, "cagr5": 1.1, "cagr10": 24.7}, {"ticker": "NFLX", "name": "Netflix, Inc.", "group": "衛星", "date": "2026-09-23", "price": 71.36, "rsi": 37.08, "sma200": 84.98, "gap": -16.03, "cagr5": 3.8, "cagr10": 22.22}, {"ticker": "META", "name": "Meta Platforms, Inc.", "group": "衛星", "date": "2026-09-23", "price": 744.1, "rsi": 77.01, "sma200": 624.46, "gap": 19.16, "cagr5": 16.32, "cagr10": 19.37}];
+DATA.forEach(d => { d.spread = +(d.cagr5 - d.cagr10).toFixed(2); });
+
+let sortKey = 'gap';
+let sortAsc = true;
+let groupFilter = '全部';
+let quick = '';
+let query = '';
+
+const tbody = document.querySelector('#tbl tbody');
+const qInput = document.getElementById('q');
+
+function fmtPct(n, digits=1) {
+  const s = (n >= 0 ? '+' : '') + n.toFixed(digits) + '%';
+  return s;
+}
+function clsPct(n) { return n >= 0 ? 'pos' : 'neg'; }
+
+function filtered() {
+  return DATA.filter(d => {
+    if (groupFilter !== '全部' && d.group !== groupFilter) return false;
+    if (quick === 'below200' && !(d.gap < 0)) return false;
+    if (quick === 'above200' && !(d.gap > 0)) return false;
+    if (quick === 'rsi40' && !(d.rsi < 40)) return false;
+    if (quick === 'fade5' && !((d.cagr10 - d.cagr5) >= 5)) return false;
+    if (query) {
+      const q = query.toLowerCase();
+      if (!(d.ticker.toLowerCase().includes(q) || d.name.toLowerCase().includes(q))) return false;
+    }
+    return true;
+  });
+}
+
+function render() {
+  const rows = filtered().slice().sort((a,b) => {
+    let av = a[sortKey], bv = b[sortKey];
+    if (typeof av === 'string') {
+      av = av.toLowerCase(); bv = bv.toLowerCase();
+      if (av < bv) return sortAsc ? -1 : 1;
+      if (av > bv) return sortAsc ? 1 : -1;
+      return 0;
+    }
+    return sortAsc ? av - bv : bv - av;
+  });
+  tbody.innerHTML = rows.map(d => `
+    <tr>
+      <td><strong>${d.ticker}</strong></td>
+      <td title="${d.name}">${d.name}</td>
+      <td><span class="pill ${d.group === '主倉' ? 'core' : 'sat'}">${d.group}</span></td>
+      <td class="num">${d.price.toFixed(2)}</td>
+      <td class="num">${d.rsi.toFixed(1)}</td>
+      <td class="num">${d.sma200.toFixed(2)}</td>
+      <td class="num ${clsPct(d.gap)}">${fmtPct(d.gap)}</td>
+      <td class="num ${clsPct(d.cagr5)}">${fmtPct(d.cagr5)}</td>
+      <td class="num ${clsPct(d.cagr10)}">${fmtPct(d.cagr10)}</td>
+      <td class="num ${clsPct(d.spread)}">${fmtPct(d.spread)}</td>
+    </tr>`).join('');
+  document.querySelectorAll('th').forEach(th => {
+    th.classList.toggle('sorted', th.dataset.key === sortKey);
+    const arrow = th.querySelector('.arrow');
+    if (arrow) arrow.textContent = th.dataset.key === sortKey ? (sortAsc ? '↑' : '↓') : '↕';
+  });
+}
+
+document.querySelectorAll('th[data-key]').forEach(th => {
+  th.addEventListener('click', () => {
+    const key = th.dataset.key;
+    if (sortKey === key) sortAsc = !sortAsc;
+    else { sortKey = key; sortAsc = (key === 'ticker' || key === 'name' || key === 'group'); }
+    render();
+  });
+});
+
+document.querySelectorAll('#groupChips .chip').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#groupChips .chip').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    groupFilter = btn.dataset.group;
+    render();
+  });
+});
+
+document.querySelectorAll('#quickChips .chip').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#quickChips .chip').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    quick = btn.dataset.quick;
+    render();
+  });
+});
+
+qInput.addEventListener('input', () => { query = qInput.value.trim(); render(); });
+
+render();
+</script>
+</body>
+</html>
