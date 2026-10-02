@@ -1,11 +1,7 @@
 # Moat Watchlist
 
-Sortable dashboard for a fixed 49-name moat universe.
+Live URL: `https://makefunprojects.github.io/moat-watchlist/` (after publishing this tree).
 
-**Live:** https://makefunprojects.github.io/moat-watchlist/
+As of: **2026-10-02** (Yahoo Finance adjusted-close daily data; 49 fixed-universe names).
 
-**As-of:** 2026-09-29 · Source: Yahoo Finance (adjusted close)
-
-**invest_score** = equal-weight ranks of: 10Y CAGR, 5Y CAGR, gap vs 200MA (lower better), Current DD / Max DD, moat_score. RSI is display-only and not in the score.
-
-**Caveat:** Survivorship bias — fixed current universe; does not include delisted or failed names. Not investment advice.
+Formula note: invest_score is the equal-weight mean of percentile ranks for 10Y CAGR, 5Y CAGR, inverted gap, adjusted current/max drawdown ratio, and moat score. No FCF factor is included.
